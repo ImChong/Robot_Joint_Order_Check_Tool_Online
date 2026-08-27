@@ -1,4 +1,4 @@
-/* UI wiring for the Robot Joint Order Check Tool */
+/* UI wiring for the Robot Joint Order Check Tool Online */
 (function (global) {
   'use strict';
 
@@ -632,7 +632,7 @@
       var dump = {
         robot: robot,
         format: state.model.format,
-        generated_by: 'Robot_Joint_Order_Check_Tool',
+        generated_by: 'Robot_Joint_Order_Check_Tool_Online',
         options: state.opts,
         orders: {},
         remap: { from: r.src.id, to: r.dst.id, target_joints: r.targets, target_from_source: r.idx }
@@ -735,7 +735,7 @@
       robot: state.model.robotName,
       format: state.model.format,
       source: sourceLabel(),
-      generated_by: 'Robot_Joint_Order_Check_Tool',
+      generated_by: 'Robot_Joint_Order_Check_Tool_Online',
       options: state.opts,
       verdict: a.verdict,
       reference: a.reference ? a.reference.id : null,

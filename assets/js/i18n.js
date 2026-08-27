@@ -4,7 +4,7 @@
 
   var DICT = {
     zh: {
-      'app.title': '机器人关节顺序检查工具',
+      'app.title': '在线机器人关节顺序检查工具',
       'app.subtitle': '比较 URDF / MJCF 在各仿真器 / 框架中的关节顺序',
       'ui.theme': '切换主题',
 
@@ -116,7 +116,7 @@
     },
 
     en: {
-      'app.title': 'Robot Joint Order Check Tool',
+      'app.title': 'Robot Joint Order Check Tool Online',
       'app.subtitle': 'Compare URDF / MJCF joint ordering across simulators and frameworks',
       'ui.theme': 'Toggle theme',
 
