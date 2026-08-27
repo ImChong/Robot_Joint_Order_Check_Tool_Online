@@ -1,16 +1,16 @@
-# Robot_Joint_Order_Check_Tool
+# Robot_Joint_Order_Check_Tool_Online
 
-机器人关节顺序检查工具 / Robot joint ordering cross-check for URDF and MuJoCo MJCF.
+在线机器人关节顺序检查工具 / Robot joint ordering cross-check for URDF and MuJoCo MJCF.
 
-[![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-Live-brightgreen?logo=github)](https://imchong.github.io/Robot_Joint_Order_Check_Tool/)
-[![Deploy GitHub Pages](https://github.com/ImChong/Robot_Joint_Order_Check_Tool/actions/workflows/pages.yml/badge.svg)](https://github.com/ImChong/Robot_Joint_Order_Check_Tool/actions/workflows/pages.yml)
+[![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-Live-brightgreen?logo=github)](https://imchong.github.io/Robot_Joint_Order_Check_Tool_Online/)
+[![Deploy GitHub Pages](https://github.com/ImChong/Robot_Joint_Order_Check_Tool_Online/actions/workflows/pages.yml/badge.svg)](https://github.com/ImChong/Robot_Joint_Order_Check_Tool_Online/actions/workflows/pages.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Privacy](https://img.shields.io/badge/URDF_%7C_MJCF-浏览器本地解析-informational?logo=firefoxbrowser&logoColor=white)](#功能)
 [![i18n](https://img.shields.io/badge/界面-中文_%7C_English-lightgrey)](#english)
 
 上传一个 **URDF 或 MuJoCo MJCF（.xml）**，把它在 **Isaac Gym / Isaac Sim (Isaac Lab) / MuJoCo / Genesis / Newton / Gazebo / PyBullet / ros2_control** 中的关节顺序并列打印出来。顺序全部一致就显示绿色，任何一个框架的顺序对不上就标红，并指出差在哪里。格式按根元素自动识别（`<robot>` 还是 `<mujoco>`），不用手动选。
 
-**在线使用：** <https://imchong.github.io/Robot_Joint_Order_Check_Tool/>
+**在线使用：** <https://imchong.github.io/Robot_Joint_Order_Check_Tool_Online/>
 
 纯静态页面，文件完全在浏览器本地解析，不上传任何服务器。
 
@@ -176,8 +176,8 @@ Gazebo 和 ros2_control 不读 MJCF，载入 MJCF 时这两列显示为「不适
 不需要构建步骤，任何静态服务器都行：
 
 ```bash
-git clone https://github.com/ImChong/Robot_Joint_Order_Check_Tool.git
-cd Robot_Joint_Order_Check_Tool
+git clone https://github.com/ImChong/Robot_Joint_Order_Check_Tool_Online.git
+cd Robot_Joint_Order_Check_Tool_Online
 python3 -m http.server 8000   # 然后打开 http://localhost:8000
 ```
 
@@ -225,7 +225,7 @@ URDF itself defines no joint order, so each downstream tool imposes its own: MuJ
 
 **Root quaternions** get the same treatment, because the base orientation travels with the joint vector and the frameworks split almost evenly on component order. Each rule card carries a colour-coded chip — `w, x, y, z` for MuJoCo, Genesis and MJCF files, `x, y, z, w` for Isaac Gym, Newton, Gazebo messages, PyBullet and ROS — plus the call that prints it. Three things bite: MuJoCo, Genesis and Newton agree on joint order yet **not** on quaternion order (Newton follows Warp's `xyzw`); **Isaac Lab 3.0 switched its default from `wxyz` to `xyzw`** to match PhysX / Warp / Newton, a silent breaking change for hard-coded literals; and Gazebo carries both at once — `x, y, z, w` in messages, `w`-first in `gz::math::Quaterniond`. A URDF has no quaternion at all: `<origin rpy>` is Euler, always in radians, while MJCF defaults to degrees.
 
-Everything runs client-side — no upload, no build step. Live at <https://imchong.github.io/Robot_Joint_Order_Check_Tool/>; run locally with `python3 -m http.server 8000`.
+Everything runs client-side — no upload, no build step. Live at <https://imchong.github.io/Robot_Joint_Order_Check_Tool_Online/>; run locally with `python3 -m http.server 8000`.
 
 See the sections above for the exact ordering rule per framework, the sources they are derived from, and the known limitations (expanded URDF only; static derivation — always confirm against the joint names your runtime prints).
 
