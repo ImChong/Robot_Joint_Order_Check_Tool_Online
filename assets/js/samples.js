@@ -111,6 +111,42 @@
     return s + '</robot>\n';
   }
 
+  /* ── 4. Arm + gripper: inconsistent as written, fixable by reordering ── */
+  function buildArmGripper() {
+    var s = '<?xml version="1.0"?>\n<robot name="arm_with_gripper">\n' +
+            '  <!-- The gripper joints were pasted in ahead of the arm, and the fingers\n' +
+            '       are declared right before left, so the file order, Gazebo\'s\n' +
+            '       alphabetical siblings and the tree walks all disagree. The tree is\n' +
+            '       a single chain ending in two fingers, though, so moving the <joint>\n' +
+            '       elements alone makes every framework agree. -->\n';
+    s += link('base_link');
+    for (var i = 1; i <= 6; i++) s += link('link_' + i);
+    ['gripper_base', 'finger_left', 'finger_right'].forEach(function (n) { s += link(n); });
+
+    s += joint('finger_right_joint', 'prismatic', 'gripper_base', 'finger_right', '0 -0.02 0.04', '0 1 0');
+    s += joint('finger_left_joint', 'prismatic', 'gripper_base', 'finger_left', '0 0.02 0.04', '0 1 0');
+    s += joint('gripper_mount', 'fixed', 'link_6', 'gripper_base', '0 0 0.05');
+    var prev = 'base_link';
+    for (var j = 1; j <= 6; j++) {
+      s += joint('joint_' + j, 'revolute', prev, 'link_' + j, '0 0 0.2', j % 2 ? '0 0 1' : '0 1 0');
+      prev = 'link_' + j;
+    }
+
+    s += '\n  <ros2_control name="ArmSystem" type="system">\n' +
+         '    <hardware>\n' +
+         '      <plugin>mock_components/GenericSystem</plugin>\n' +
+         '    </hardware>\n';
+    ['finger_right_joint', 'finger_left_joint', 'joint_1', 'joint_2', 'joint_3',
+     'joint_4', 'joint_5', 'joint_6'].forEach(function (n) {
+      s += '    <joint name="' + n + '">\n' +
+           '      <command_interface name="position"/>\n' +
+           '      <state_interface name="position"/>\n' +
+           '    </joint>\n';
+    });
+    s += '  </ros2_control>\n';
+    return s + '</robot>\n';
+  }
+
   var G1 = 'https://github.com/unitreerobotics/unitree_ros/blob/master/robots/g1_description/';
 
   global.SAMPLES = [
@@ -131,6 +167,12 @@
       file: 'ros2control.urdf',
       label: { zh: '移动机械臂（含 ros2_control）', en: 'Mobile manipulator (ros2_control)' },
       text: buildRos2Control()
+    },
+    {
+      id: 'arm_gripper',
+      file: 'arm_gripper.urdf',
+      label: { zh: '机械臂 + 夹爪（可重排统一）', en: 'Arm + gripper (unifiable)' },
+      text: buildArmGripper()
     },
     {
       id: 'g1_urdf',

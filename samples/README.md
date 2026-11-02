@@ -4,7 +4,7 @@
 
 ## 合成示例 / Synthetic samples
 
-`arm.urdf`、`quadruped.urdf`、`ros2control.urdf` 由 [`assets/js/samples.js`](../assets/js/samples.js) 生成，
+`arm.urdf`、`quadruped.urdf`、`ros2control.urdf`、`arm_gripper.urdf` 由 [`assets/js/samples.js`](../assets/js/samples.js) 生成，
 改过那个文件之后运行 `node tools/export-samples.mjs` 重新导出（CI 会检查两者是否一致）。
 
 Generated from `assets/js/samples.js`; re-run `node tools/export-samples.mjs` after editing it.

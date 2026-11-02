@@ -27,6 +27,9 @@ jobs:
       - name: Check joint-order rules
         run: node tools/test-orderings.mjs
 
+      - name: Check the unified-order recommendation
+        run: node tools/test-unify.mjs
+
   deploy:
     name: Deploy to GitHub Pages
     needs: check

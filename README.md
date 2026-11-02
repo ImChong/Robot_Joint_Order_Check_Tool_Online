@@ -86,12 +86,30 @@ Gazebo 和 ros2_control 不读 MJCF，载入 MJCF 时这两列显示为「不适
 - **拖拽 / 选择文件 / 粘贴文本**三种方式载入 URDF 或 MJCF，或直接点内置示例
 - **并列对照表**，逐格标出与参照顺序不同的位置；也可切换成「按关节」视图看每个关节在各框架中的索引和偏移量
 - 绿 / 红 / 黄三态结论：顺序一致、顺序不一致、顺序一致但关节集合不同
+- **统一关节顺序推荐**：只调整 `<joint>` 在文件里的先后，找一种让所有框架顺序都相同的写法，并直接下载调整后的 URDF；找不到就说明原因（见下）
 - **索引重映射代码生成**：选好源框架和目标框架，直接产出可粘贴的 Python / C++ 索引数组
 - 导出 CSV 与完整 JSON
 - 运动学树可视化、关节类型与 DOF 列表
 - **各框架根节点四元数**的分量顺序（`w,x,y,z` 还是 `x,y,z,w`）与获取命令，逐个列在顺序规则卡片里
 - 自动提示常见坑：未展开的 xacro、mimic 关节 / MJCF 的 `<equality>`、多自由度关节（floating / planar / ball）、浮动基座、多根链接、成环、只在 joint 里引用却没定义的 link、MJCF 的 `<include>` 与重名元素
 - 中英文界面切换、明暗主题
+
+## 统一关节顺序
+
+页面第 4 步会尝试回答：**能不能只改 `<joint>` 的书写顺序，让同一份 URDF 在所有框架里得到同一个关节顺序？**
+
+- 只移动 `<joint>` 元素（以及 `<ros2_control>` 块里的关节条目，条目不会跨块移动）；关节名、父子 link、类型、参数一概不改，其余文本逐字节保留
+- 推荐顺序 = 运动学树的 DFS 前序，同一个 link 下**带可动关节的子支链按关节名字母序**排（这是 Gazebo 唯一能接受的顺序），只带 fixed 关节的子支链留在原位
+- 这样 DFS 系（Isaac Gym / MuJoCo / Genesis / Newton / PyBullet / Gazebo）和文件顺序自动一致，剩下只看 BFS（Isaac Sim / Isaac Lab）：同层顺序已被字母序锁死，没有别的选择，所以这个候选不行就**任何排列都不行**
+- 判定用的是对照表同一套规则，并在「显示 / 不显示 fixed 关节」×「ros2_control 两种顺序来源」四种设置下都要一致；生成的文件会重新解析、逐项比对后才提供下载，还可以一键载回本页核对
+
+能统一的典型情况：单链机械臂、末端只有几个叶子关节（如夹爪手指）的机械臂。无法统一的典型情况：
+- 某个 link 下有两条以上还会继续往下延伸的支链（四足的四条腿、人形的腿 / 腰 / 臂）—— DFS 和 BFS 注定分歧
+- 只有一条支链往下延伸，但它的关节名按字母序排在同层叶子关节前面（内置「移动机械臂」示例：`arm_shoulder_pan` < `drive_wheel_*`）—— 不改名就无法统一
+
+此时页面会指出分歧从哪个下标、哪个 link 开始，建议保留原文件、用「导出与索引重映射」在代码里转换下标。内置示例「机械臂 + 夹爪」是一个能统一的例子。
+
+结论同样是按各框架默认导入选项**静态推导**的，生产环境请以运行时打印的关节名列表为准。
 
 ## 关节集合的比较方式
 
@@ -185,6 +203,7 @@ python3 -m http.server 8000   # 然后打开 http://localhost:8000
 
 ```bash
 node tools/test-orderings.mjs
+node tools/test-unify.mjs      # 统一顺序推荐与 URDF 改写
 ```
 
 ## 开启 GitHub Pages
@@ -203,13 +222,15 @@ assets/js/samples.js       内置示例机器人（唯一数据源）
 assets/js/urdf.js          URDF 解析与运动学树构建
 assets/js/mjcf.js          MJCF（MuJoCo XML）解析，产出同一套模型结构
 assets/js/orderings.js     各框架的顺序规则与一致性分析
+assets/js/unify.js         统一关节顺序推荐，以及只移动 <joint> 的 URDF 文本改写
 assets/js/app.js           界面逻辑
 samples/                   示例文件（合成的由 samples.js 导出，真实机型原样收录）
 tools/export-samples.mjs   重新生成合成示例，并检查收录的文件还在
 tools/test-orderings.mjs   各框架顺序规则的无浏览器检查（含 Genesis / Newton / PyBullet 列）
+tools/test-unify.mjs       统一顺序推荐与 URDF 改写的无浏览器检查
 ```
 
-改过 `assets/js/samples.js` 之后跑 `node tools/export-samples.mjs` 同步示例文件，CI 会检查两者是否一致。收录的第三方模型不会被这个脚本改写，只检查存在性。改过 `assets/js/orderings.js` 之后跑 `node tools/test-orderings.mjs`。
+改过 `assets/js/samples.js` 之后跑 `node tools/export-samples.mjs` 同步示例文件，CI 会检查两者是否一致。收录的第三方模型不会被这个脚本改写，只检查存在性。改过 `assets/js/orderings.js` 之后跑 `node tools/test-orderings.mjs`，改过 `assets/js/unify.js` 之后跑 `node tools/test-unify.mjs`。
 
 ---
 
@@ -222,6 +243,8 @@ URDF itself defines no joint order, so each downstream tool imposes its own: MuJ
 **Genesis** and **Newton** both land on the same depth-first order as MuJoCo — Genesis because it hands the kinematic structure to MuJoCo's unified parser outright, Newton because `parse_urdf(joint_ordering="dfs")` sorts each node's children by joint id. What differs is what they put *around* your joints: Genesis merges fixed links away by default (`merge_fixed_links=True`) and prepends a synthetic free `root_joint` unless you pass `fixed=True`, while Newton keeps fixed joints as 0-DOF entries that still consume a joint index and always prepends a base joint of its own, so `model.joint_label[0]` is never your first joint. Newton is also the one importer that lets you pick: `joint_ordering="bfs"` reproduces the Isaac Sim column.
 
 **MJCF** is a different question: the XML nesting *is* the body tree, so the file order is the joint id order MuJoCo compiles to, and the interesting mismatch moves elsewhere — `data.ctrl` follows the `<actuator>` block, a separate vector, which gets its own column. The bundled Unitree G1 model is a live example: its official URDF and MJCF agree on joint order, but the MJCF's last four right-hand actuators (indices 39–42) are written `index_0, index_1, middle_0, middle_1` while the joints run `middle_0, middle_1, index_0, index_1`. Bodies with no joint (welds), `<default>` class inheritance, free/ball joints and `<equality>` constraints are all handled; `<include>` is not followed and is reported instead.
+
+**Unifying the order.** Step 4 asks whether reordering the `<joint>` elements alone — names, links, types and parameters untouched, everything else byte-for-byte — can give every framework the same order, and if so offers the rewritten URDF for download (plus a one-click reload to re-check it). The candidate is the depth-first order with movable-carrying siblings sorted by joint name, the only sibling order Gazebo accepts; that settles every depth-first column, so the breadth-first Isaac Sim / Isaac Lab column decides. If it still differs, no `<joint>` arrangement can work, and the page says where the split starts: several branches that keep going below one link (quadrupeds, humanoids), or a single such branch that Gazebo's alphabetical order puts ahead of its leaf siblings (the bundled mobile manipulator). The bundled "Arm + gripper" sample is one that can be unified.
 
 **Root quaternions** get the same treatment, because the base orientation travels with the joint vector and the frameworks split almost evenly on component order. Each rule card carries a colour-coded chip — `w, x, y, z` for MuJoCo, Genesis and MJCF files, `x, y, z, w` for Isaac Gym, Newton, Gazebo messages, PyBullet and ROS — plus the call that prints it. Three things bite: MuJoCo, Genesis and Newton agree on joint order yet **not** on quaternion order (Newton follows Warp's `xyzw`); **Isaac Lab 3.0 switched its default from `wxyz` to `xyzw`** to match PhysX / Warp / Newton, a silent breaking change for hard-coded literals; and Gazebo carries both at once — `x, y, z, w` in messages, `w`-first in `gz::math::Quaterniond`. A URDF has no quaternion at all: `<origin rpy>` is Euler, always in radians, while MJCF defaults to degrees.
 

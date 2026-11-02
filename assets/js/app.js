@@ -5,6 +5,7 @@
   var t = global.I18N.t;
   var URDF = global.URDF;
   var Orderings = global.Orderings;
+  var Unify = global.Unify;
 
   var state = {
     text: '',
@@ -12,6 +13,7 @@
     model: null,
     tree: null,
     analysis: null,
+    unify: null,
     view: 'byindex',
     codeLang: 'python',
     opts: { refId: 'file', siblingOrder: 'auto', ros2cMode: 'urdf', showFixed: false }
@@ -204,12 +206,15 @@
     var rootless = state.tree && state.tree.roots.length === 0;
 
     if (state.model.errors.length || !state.tree || rootless) {
+      state.unify = null;
       $('#results').hidden = true;
       $('#fileMeta').hidden = true;
       renderMessages();
       return;
     }
     state.opts.refId = 'file';
+    // Independent of the options: a unified order has to hold under all of them.
+    state.unify = computeUnify();
     $('#results').hidden = false;
     renderAll();
     $('#results').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -226,6 +231,7 @@
     renderOptions();
     renderVerdict();
     renderTable();
+    renderUnify();
     renderExport();
     renderTreeView();
     renderJointsTable();
@@ -462,12 +468,18 @@
       desc = t('verdict.single');
     }
 
+    // Point a red verdict at the fix, or at why there is none.
+    var u = state.unify;
+    var unifyLink = a.verdict === 'bad' && u && (u.status === 'found' || u.status === 'none')
+      ? '<p class="verdict-link"><a href="#unifyCard">' + t('verdict.unify.' + u.status) + '</a></p>'
+      : '';
+
     host.className = 'verdict ' + cls;
     host.innerHTML =
       '<span class="verdict-mark">' + mark + '</span>' +
       '<div><h2>' + esc(title) + '</h2><p>' + desc + '</p>' +
       (items.length ? '<ul class="verdict-list">' + items.map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ul>' : '') +
-      '</div>';
+      unifyLink + '</div>';
   }
 
   function describeColumn(col) {
@@ -567,6 +579,154 @@
     return '<table class="tbl"><thead><tr><th>' + t('table.joint') + '</th><th>' + t('table.type') +
            '</th><th class="col-idx">' + t('table.dof') + '</th>' + headerCells() +
            '</tr></thead><tbody>' + rows + '</tbody></table>';
+  }
+
+  /* ── Unified order ─────────────────────────────────────────────── */
+
+  /* The rewritten text is only offered after it has been parsed back and
+     checked against the original: same links, same joints, nothing left
+     disagreeing. A file that fails that is never handed out. */
+  function computeUnify() {
+    var rec = Unify.recommend(state.model, state.tree);
+    if (rec.status !== 'found') return rec;
+    try {
+      var text = Unify.rewriteUrdf(state.text, state.model, rec);
+      if (!Unify.verifyRewrite(state.model, URDF.parseUrdf(text), rec)) throw new Error('self-check failed');
+      rec.text = text;
+    } catch (e) {
+      rec.fileError = String(e && e.message || e);
+    }
+    return rec;
+  }
+
+  function unifiedFileName() {
+    var s = state.source || {};
+    var sample = currentSample();
+    var base = s.kind === 'file' && s.name ? s.name
+      : sample && sample.file ? sample.file
+      : state.model.robotName || 'robot';
+    return base.replace(/\.[^.]*$/, '').replace(/_unified$/, '') + '_unified.urdf';
+  }
+
+  function unifyBox(kind, mark, title, body) {
+    return '<div class="unify-status unify-' + kind + '"><span class="unify-mark">' + mark + '</span>' +
+           '<div><h3>' + esc(title) + '</h3>' + body + '</div></div>';
+  }
+
+  function fwLabelById(id) {
+    var fw = Orderings.FRAMEWORKS.filter(function (f) { return f.id === id; })[0];
+    return fw ? Orderings.labelOf(fw, lang(), format()) : id;
+  }
+
+  /* "Gazebo, PyBullet (counting fixed joints)" — each column once, qualified
+     by the setting it disagrees under when that is not the default view. */
+  function conflictList(list) {
+    var ids = [], modes = {};
+    list.forEach(function (c) {
+      if (!modes[c.id]) { modes[c.id] = []; ids.push(c.id); }
+      modes[c.id].push(c);
+    });
+    return ids.map(function (id) {
+      var m = modes[id];
+      var any = function (f) { return m.some(f); };
+      var qual = any(function (c) { return !c.showFixed && c.ros2cMode === 'urdf'; }) ? ''
+        : any(function (c) { return c.ros2cMode === 'urdf'; }) ? t('unify.qual.fixed')
+        : t('unify.qual.tag');
+      return '<b>' + esc(fwLabelById(id)) + '</b>' + qual;
+    }).join(lang() === 'zh' ? '、' : ', ');
+  }
+
+  function renderUnify() {
+    var host = $('#unifyOut');
+    var u = state.unify;
+    if (!u) { host.innerHTML = ''; return; }
+
+    if (u.status === 'na') {
+      host.innerHTML = unifyBox('na', 'i', t('unify.na.title'),
+        '<p>' + t('unify.na.' + u.reason, { list: u.list ? joinNames(u.list) : '' }) + '</p>');
+      return;
+    }
+    if (u.status === 'already') {
+      host.innerHTML = unifyBox('ok', '✓', t('unify.already.title'), '<p>' + t('unify.already.desc') + '</p>');
+      return;
+    }
+    if (u.status === 'none') {
+      var s = u.split;
+      var body = '<p>' + t('unify.none.desc') + '</p>';
+      if (s) {
+        body += '<p>' + t(s.link ? 'unify.none.where' : 'unify.none.whereNoLink', {
+          i: s.index, dfs: esc(s.dfs), bfs: esc(s.bfs), link: esc(s.link || '')
+        });
+        if (s.forcedBy === 'branches') {
+          body += ' ' + t('unify.none.branches', { link: esc(s.link), k: s.branches });
+        } else if (s.forcedBy === 'alphabetical') {
+          body += ' ' + t('unify.none.alpha', { link: esc(s.link), deep: esc(s.deep), next: esc(s.next) });
+        }
+        body += '</p>';
+      }
+      if (!s || u.after.some(function (c) { return c.id !== 'isaacsim'; })) {
+        body += '<p>' + t('unify.none.generic', { list: conflictList(u.after) }) + '</p>';
+      }
+      body += '<p>' + t('unify.none.advice') + '</p>';
+      host.innerHTML = unifyBox('bad', '✕', t('unify.none.title'), body);
+      return;
+    }
+
+    // found
+    var actions = [];
+    if (u.moved) actions.push(t('unify.found.joints', { n: u.moved }));
+    if (u.ros2Changed) actions.push(t('unify.found.ros2', { n: u.ros2Changed }));
+    var act = actions.join(t('unify.found.join'));
+    act = act.charAt(0).toUpperCase() + act.slice(1);
+
+    var body2 = '<p>' + t('unify.found.desc', { actions: act, m: u.movable }) + '</p>' +
+                '<p class="unify-before">' + t('unify.found.before', { list: conflictList(u.before) }) + '</p>';
+    if (!u.tagModeOk) body2 += '<p class="unify-before">' + t('unify.found.tagNote') + '</p>';
+
+    var actionsHtml = u.text
+      ? '<div class="unify-actions">' +
+          '<button type="button" class="btn btn-primary btn-sm" data-unify="download">' + t('unify.download') + '</button>' +
+          '<button type="button" class="btn btn-ghost btn-sm" data-unify="reload">' + t('unify.reload') + '</button>' +
+        '</div>'
+      : '<div class="msg msg-warn"><span class="msg-icon">!</span><span>' + t('unify.fileError') + '</span></div>';
+
+    host.innerHTML = unifyBox('ok', '✓', t('unify.found.title'), body2) + actionsHtml + unifyTable(u);
+  }
+
+  /* The new file order, with each joint's index in the unified vector and
+     where it sat before. */
+  function unifyTable(u) {
+    var freeBase = {};
+    Orderings.freeBaseJoints(u.model, u.tree).forEach(function (j) { freeBase[j.name] = true; });
+    var vec = 0;
+    var rows = u.order.map(function (name, i) {
+      var j = u.model.jointByName[name];
+      var inVec = URDF.isMovable(j) && !freeBase[name];
+      var old = state.model.jointByName[name].docIndex;
+      var moved = old !== i;
+      return '<tr><td class="col-idx">' + (inVec ? vec++ : '—') + '</td>' +
+             '<td class="cell' + (URDF.isMovable(j) ? '' : ' cell-fixed') + '">' + esc(name) + '</td>' +
+             '<td>' + esc(j.type) + '</td>' +
+             '<td class="cell cell-idx' + (moved ? ' cell-shift' : '') + '">' +
+             (moved ? old + ' → ' + i : i) + '</td></tr>';
+    }).join('');
+    return '<div class="table-scroll unify-list"><table class="tbl tbl-sm"><thead><tr>' +
+           '<th class="col-idx">' + t('unify.col.idx') + '</th><th>' + t('table.joint') + '</th>' +
+           '<th>' + t('table.type') + '</th><th>' + t('unify.col.pos') + '</th>' +
+           '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+  }
+
+  function initUnify() {
+    $('#unifyOut').addEventListener('click', function (e) {
+      var btn = e.target.closest && e.target.closest('[data-unify]');
+      var u = state.unify;
+      if (!btn || !u || !u.text) return;
+      if (btn.getAttribute('data-unify') === 'download') {
+        download(unifiedFileName(), 'application/xml', u.text);
+      } else {
+        load(u.text, { kind: 'file', name: unifiedFileName() });
+      }
+    });
   }
 
   /* ── Export / remap ────────────────────────────────────────────── */
@@ -865,6 +1025,7 @@
     initTheme();
     initInput();
     initTree();
+    initUnify();
     initLang();
     global.I18N.applyStatic();
   }
