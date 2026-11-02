@@ -52,7 +52,7 @@
 
     <p class="intro-note" data-i18n-html="intro.note">把 Isaac Gym 训好的策略搬到 Isaac Lab 或实机上，关节向量就会<b>静默错位</b> —— 不报错，机器人直接抽搐。MJCF 也躲不掉：body 树定死了关节顺序，但 <code>&lt;actuator&gt;</code>（<code>data.ctrl</code>）是另一个向量。</p>
 
-    <p class="intro-note" data-i18n="intro.does">这个页面把 URDF / MJCF 在各框架里的关节顺序并列排开：一致显示绿色，对不上就标红到具体哪一格，并生成可直接粘贴的索引重映射数组。文件只在你的浏览器里解析。</p>
+    <p class="intro-note" data-i18n="intro.does">这个页面把 URDF / MJCF 在各框架里的关节顺序并列排开：一致显示绿色，对不上就标红到具体哪一格，能统一时直接给出一份调整好关节顺序的 URDF，不能统一就生成可直接粘贴的索引重映射数组。文件只在你的浏览器里解析。</p>
 
     <p class="intro-links"><a href="#rulesCard" data-i18n="intro.linkRules">各框架的顺序规则与出处 ↓</a></p>
   </section>
@@ -142,8 +142,14 @@
       <div class="table-scroll" id="tableWrap"></div>
     </section>
 
+    <section class="card" id="unifyCard">
+      <h2 class="card-title" data-i18n="unify.title">4. 统一关节顺序</h2>
+      <p class="card-hint" data-i18n-html="unify.hint">只调整 &lt;joint&gt; 在文件中的先后（必要时连同 &lt;ros2_control&gt; 里的关节条目），尝试找出一种写法，让同一份 URDF 在上表所有框架中得到同一个关节顺序。关节名、父子关系、类型和参数一概不动，运动学链保持原样。</p>
+      <div id="unifyOut"></div>
+    </section>
+
     <section class="card">
-      <h2 class="card-title" data-i18n="export.title">4. 导出与索引重映射</h2>
+      <h2 class="card-title" data-i18n="export.title">5. 导出与索引重映射</h2>
       <p class="card-hint" data-i18n="export.hint">生成把一个框架的关节向量重排到另一个框架的索引数组，直接贴进代码里用。</p>
       <div class="options">
         <label class="opt"><span data-i18n="export.from">源顺序（你手上的数据）</span><select id="mapFrom"></select></label>
@@ -167,7 +173,7 @@
     </section>
 
     <section class="card">
-      <h2 class="card-title" data-i18n="tree.title">5. 运动学树与关节详情</h2>
+      <h2 class="card-title" data-i18n="tree.title">6. 运动学树与关节详情</h2>
       <div class="split">
         <div>
           <div class="sub-head">
@@ -205,6 +211,7 @@
 <script src="assets/js/urdf.js"></script>
 <script src="assets/js/mjcf.js"></script>
 <script src="assets/js/orderings.js"></script>
+<script src="assets/js/unify.js"></script>
 <script src="assets/js/app.js"></script>
 </body>
 </html>
